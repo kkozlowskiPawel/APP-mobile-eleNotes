@@ -4,108 +4,230 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>eleNotes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; padding: 20px; max-width: 960px; margin: 0 auto; }
-  h1 { font-size: 1.8rem; margin-bottom: 4px; }
-  .subtitle { color: #86868b; margin-bottom: 24px; font-size: 0.95rem; }
-
-  .drop-zone {
-    border: 2px dashed #c7c7cc; border-radius: 16px; padding: 48px 24px; text-align: center;
-    cursor: pointer; transition: all 0.2s; background: #fff; margin-bottom: 20px;
+  /* ===== THEME VARIABLES ===== */
+  :root {
+    --bg: rgba(245, 245, 247, 0.88);
+    --bg-card: rgba(255, 255, 255, 0.92);
+    --bg-card-solid: #ffffff;
+    --accent: #CC3322;
+    --accent-hover: #aa2818;
+    --text: #1d1d1f;
+    --text-muted: #6e6e73;
+    --border: #d1d1d6;
+    --border-dashed: #b0b0b8;
+    --btn-secondary-bg: #e5e5ea;
+    --btn-secondary-text: #1d1d1f;
+    --btn-secondary-hover: #d1d1d6;
+    --zoom-btn-bg: #e5e5ea;
+    --zoom-btn-hover: #d1d1d6;
+    --shadow: rgba(0,0,0,0.08);
+    --radius: 10px;
+    --drop-hover-bg: rgba(204, 51, 34, 0.05);
+    --drop-hover-border: #CC3322;
+    --checkerboard-color: #d8d8d8;
   }
-  .drop-zone:hover, .drop-zone.dragover { border-color: #007aff; background: #f0f7ff; }
-  .drop-zone .icon { font-size: 2.5rem; margin-bottom: 8px; color: #c7c7cc; }
-  .drop-zone p { color: #86868b; font-size: 1.1rem; }
+  body.dark {
+    --bg: rgba(13, 15, 15, 0.90);
+    --bg-card: rgba(24, 26, 26, 0.95);
+    --bg-card-solid: #181a1a;
+    --accent: #e03a28;
+    --accent-hover: #c52e1e;
+    --text: #f4f3f3;
+    --text-muted: #aaabab;
+    --border: rgba(70, 72, 72, 0.4);
+    --border-dashed: rgba(150, 150, 155, 0.4);
+    --btn-secondary-bg: #2a2e2e;
+    --btn-secondary-text: #e0e3e3;
+    --btn-secondary-hover: #333838;
+    --zoom-btn-bg: #2a2e2e;
+    --zoom-btn-hover: #333838;
+    --shadow: rgba(0,0,0,0.3);
+    --drop-hover-bg: rgba(224, 58, 40, 0.08);
+    --drop-hover-border: #e03a28;
+    --checkerboard-color: #d8d8d8;
+  }
 
-  /* Crop area */
+  /* ===== RESET & BASE ===== */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    background:
+      url('/background.png') center / cover fixed,
+      var(--bg);
+    background-blend-mode: overlay;
+    transition: color 0.2s, background-color 0.2s;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 60px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .logo-img { height: 36px; width: auto; display: block; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .theme-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: var(--btn-secondary-bg); color: var(--text); cursor: pointer;
+    font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .theme-btn:hover { background: var(--zoom-btn-hover); border-color: var(--accent); }
+
+  /* ===== MAIN CONTENT ===== */
+  .page-content {
+    max-width: 960px; margin: 0 auto;
+    padding: 28px 20px 40px;
+  }
+  .page-title {
+    font-family: 'Caveat', cursive;
+    font-size: 2.4rem; font-weight: 700;
+    color: var(--text); margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle { color: var(--text-muted); margin-bottom: 28px; font-size: 0.95rem; font-weight: 400; }
+
+  /* ===== DROP ZONE ===== */
+  .drop-zone {
+    border: 2px dashed var(--border-dashed); border-radius: 16px;
+    padding: 48px 24px; text-align: center;
+    cursor: pointer; transition: all 0.2s;
+    background: var(--bg-card); margin-bottom: 20px;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--drop-hover-border);
+    background: var(--drop-hover-bg);
+  }
+  .drop-zone .icon {
+    font-size: 2.5rem; margin-bottom: 8px;
+    color: var(--accent); opacity: 0.6;
+  }
+  .drop-zone p { color: var(--text-muted); font-size: 1.05rem; }
+
+  /* ===== CROP AREA ===== */
   .crop-area { display: none; margin-bottom: 20px; }
   .crop-area.visible { display: block; }
 
   .zoom-bar {
     display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
-    background: #fff; border-radius: 10px; padding: 8px 14px;
+    background: var(--bg-card); border-radius: 10px; padding: 8px 14px;
+    box-shadow: 0 1px 6px var(--shadow);
+    flex-wrap: wrap;
   }
-  .zoom-bar span { font-size: 0.85rem; color: #6e6e73; flex: 1; }
-  .zoom-bar .zoom-label { font-weight: 600; color: #007aff; min-width: 42px; text-align: center; font-size: 0.9rem; }
+  .zoom-bar > span:first-child { font-size: 0.85rem; color: var(--text-muted); flex: 1; min-width: 120px; }
+  .zoom-bar .zoom-label {
+    font-weight: 700; color: var(--accent);
+    min-width: 42px; text-align: center; font-size: 0.9rem;
+  }
   .zoom-btn {
     width: 32px; height: 32px; border-radius: 8px; border: none;
-    background: #e5e5ea; cursor: pointer; font-size: 1.2rem; font-weight: 700;
-    display: flex; align-items: center; justify-content: center; color: #1d1d1f;
+    background: var(--zoom-btn-bg); cursor: pointer; font-size: 1.2rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; color: var(--text);
     transition: background 0.15s;
   }
-  .zoom-btn:hover { background: #d1d1d6; }
+  .zoom-btn:hover { background: var(--zoom-btn-hover); }
 
   .crop-viewport {
     overflow: auto; border-radius: 12px; background: #000;
     max-height: 65vh; cursor: default;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   }
-  .crop-container {
-    position: relative; display: inline-block;
-    transform-origin: top left;
-  }
+  .crop-container { position: relative; display: inline-block; transform-origin: top left; }
   .crop-container img { display: block; }
-  .crop-container canvas {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    cursor: crosshair;
-  }
-  .crop-hint { font-size: 0.85rem; color: #86868b; margin-top: 8px; }
+  .crop-container canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .crop-hint { font-size: 0.82rem; color: var(--text-muted); margin-top: 8px; }
 
+  /* ===== ACTIONS ===== */
   .actions { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
   button {
-    padding: 12px 28px; border: none; border-radius: 10px; font-size: 1rem;
-    cursor: pointer; font-weight: 600; transition: opacity 0.2s;
+    padding: 12px 28px; border: none; border-radius: var(--radius);
+    font-size: 1rem; cursor: pointer; font-weight: 600;
+    font-family: 'Manrope', sans-serif;
+    transition: opacity 0.2s, transform 0.1s;
   }
-  button:hover { opacity: 0.85; }
-  button:disabled { opacity: 0.4; cursor: default; }
-  .btn-primary { background: #007aff; color: #fff; font-size: 1.1rem; padding: 14px 36px; }
-  .btn-secondary { background: #e5e5ea; color: #1d1d1f; }
-  .btn-text { background: none; color: #86868b; font-size: 0.85rem; padding: 8px 12px; font-weight: 400; }
-  .btn-text:hover { color: #007aff; opacity: 1; }
-  .btn-danger { background: #ff3b30; color: #fff; }
+  button:hover { opacity: 0.88; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: default; transform: none; }
 
-  .advanced { display: none; margin-bottom: 20px; background: #fff; padding: 16px; border-radius: 12px; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    font-size: 1.05rem; padding: 14px 36px;
+    box-shadow: 0 2px 16px rgba(204, 51, 34, 0.3);
+  }
+  .btn-primary:hover { background: var(--accent-hover); opacity: 1; }
+  .btn-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+  }
+  .btn-secondary:hover { background: var(--btn-secondary-hover); opacity: 1; }
+  .btn-text {
+    background: none; color: var(--text-muted);
+    font-size: 0.85rem; padding: 8px 12px; font-weight: 400;
+  }
+  .btn-text:hover { color: var(--accent); opacity: 1; }
+
+  .status { color: var(--text-muted); font-size: 0.9rem; margin-left: 8px; }
+
+  /* ===== ADVANCED PANEL ===== */
+  .advanced {
+    display: none; margin-bottom: 20px;
+    background: var(--bg-card); padding: 16px; border-radius: 12px;
+    box-shadow: 0 1px 8px var(--shadow);
+  }
   .advanced.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
   .control-group { display: flex; flex-direction: column; gap: 4px; }
-  .control-group label { font-size: 0.85rem; color: #6e6e73; font-weight: 500; }
-  .control-group .value { font-size: 0.8rem; color: #007aff; font-weight: 600; }
-  input[type="range"] { width: 100%; accent-color: #007aff; }
+  .control-group label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+  .control-group .value { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
   .checkbox-row { display: flex; gap: 20px; grid-column: 1 / -1; }
-  .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
+  .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; color: var(--text); }
 
-  /* Result area */
+  /* ===== RESULT AREA ===== */
   .result-area { display: none; }
   .result-area.visible { display: block; margin-bottom: 20px; }
-  .result-label { font-size: 0.85rem; color: #6e6e73; margin-bottom: 8px; font-weight: 500; }
+  .result-label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
 
   .checkerboard {
     background-image:
-      linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
-      linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
-      linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+      linear-gradient(45deg, var(--checkerboard-color) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checkerboard-color) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checkerboard-color) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checkerboard-color) 75%);
     background-size: 20px 20px;
     background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-    border-radius: 12px; padding: 16px; text-align: center;
+    background-color: var(--bg-card);
+    border-radius: 12px;
     overflow: auto; max-height: 60vh;
+    box-shadow: 0 2px 12px var(--shadow);
   }
-  .checkerboard canvas { max-width: 100%; border-radius: 4px; display: block; margin: 0 auto; }
+  #resultContainer { display: inline-block; transform-origin: top left; padding: 16px; }
+  body.dark .checkerboard { background-color: #ffffff; }
+  .checkerboard canvas { border-radius: 4px; display: block; }
 
-  /* Eraser toolbar */
+  /* ===== ERASER BAR ===== */
   .eraser-bar {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    background: #fff; border-radius: 10px; padding: 10px 14px; margin-top: 12px;
+    background: var(--bg-card); border-radius: 10px;
+    padding: 10px 14px; margin-top: 12px;
+    box-shadow: 0 1px 6px var(--shadow);
   }
-  .eraser-bar label { font-size: 0.85rem; color: #6e6e73; font-weight: 500; }
-  .eraser-toggle {
-    padding: 8px 18px; border-radius: 8px; font-size: 0.9rem;
-  }
+  .eraser-bar label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+  .eraser-toggle { padding: 8px 18px; border-radius: 8px; font-size: 0.9rem; }
   .eraser-toggle.active { background: #ff9500; color: #fff; }
   .brush-group { display: flex; align-items: center; gap: 8px; }
   .brush-group input[type="range"] { width: 100px; }
-  .brush-size-preview {
-    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-  }
+  .brush-size-preview { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
   .brush-dot {
     background: rgba(255, 59, 48, 0.5); border-radius: 50%; border: 1.5px solid #ff3b30;
     transition: width 0.1s, height 0.1s;
@@ -113,15 +235,50 @@
 
   .result-actions { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 
+  /* ===== SPINNER ===== */
   .spinner { display: none; }
-  .spinner.active { display: inline-block; width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
+  .spinner.active {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid #fff; border-top-color: transparent;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .status { color: #86868b; font-size: 0.9rem; margin-left: 8px; }
+
+  /* ===== MOBILE ===== */
+  @media (max-width: 600px) {
+    header { padding: 0 14px; height: 54px; }
+    .logo-img { height: 28px; }
+    .page-content { padding: 16px 12px 32px; }
+    .page-title { font-size: 1.9rem; }
+    .drop-zone { padding: 32px 16px; }
+    .btn-primary { width: 100%; text-align: center; justify-content: center; display: flex; }
+    .actions { flex-direction: column; align-items: stretch; }
+    .zoom-bar { gap: 6px; }
+    .zoom-bar > span:first-child { display: none; }
+    .advanced.visible { grid-template-columns: 1fr; }
+    .result-actions { flex-direction: column; }
+    .eraser-bar { gap: 8px; }
+  }
+  @media (max-width: 400px) {
+    .page-title { font-size: 1.6rem; }
+    .btn-primary { padding: 13px 20px; font-size: 1rem; }
+  }
 </style>
 </head>
 <body>
 
-<h1>eleNotes</h1>
+<!-- HEADER -->
+<header>
+  <img src="/logo.png" class="logo-img" alt="eleNotes">
+  <div class="header-right">
+    <button class="theme-btn" id="themeToggle" title="Zmień motyw">🌙</button>
+  </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<div class="page-content">
+
 <p class="subtitle">Zrob zdjecie tablicy, wrzuc tutaj i pobierz czyste notatki z przezroczystym tlem</p>
 
 <div class="drop-zone" id="dropZone">
@@ -144,7 +301,7 @@
       <canvas id="cropCanvas"></canvas>
     </div>
   </div>
-  <p class="crop-hint">Przeciagnij zielone punkty aby dopasowac zaznaczenie tablicy &nbsp;|&nbsp; Scroll = zoom</p>
+  <p class="crop-hint">Przeciagnij czerwone punkty aby dopasowac zaznaczenie tablicy &nbsp;|&nbsp; Scroll = zoom</p>
 </div>
 
 <div class="actions">
@@ -164,7 +321,9 @@
     <button class="btn-text" id="resultZoomReset" style="padding:4px 10px">Reset</button>
   </div>
   <div class="checkerboard" id="checkerboard">
-    <canvas id="resultCanvas"></canvas>
+    <div id="resultContainer">
+      <canvas id="resultCanvas"></canvas>
+    </div>
   </div>
 
   <div class="eraser-bar">
@@ -181,6 +340,7 @@
   <div class="result-actions">
     <button class="btn-primary" id="downloadBtn">Pobierz PNG</button>
     <button class="btn-secondary" id="copyBtn">Kopiuj do schowka</button>
+    <button class="btn-secondary" id="newPhotoBtn">&#8635; Nowe zdjecie</button>
   </div>
 </div>
 
@@ -206,6 +366,8 @@
   </div>
 </div>
 
+</div><!-- end .page-content -->
+
 <script>
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -228,6 +390,7 @@ let originalResultBlob = null;
 let corners = [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]];
 let draggingIdx = -1;
 const POINT_RADIUS = 14;
+const ACCENT = '#CC3322';
 
 // Zoom state
 let zoomLevel = 1;
@@ -243,6 +406,25 @@ let baseResultW = 0, baseResultH = 0;
 let eraserMode = false;
 let isErasing = false;
 let brushSizePx = 25;
+
+// --- Theme toggle ---
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') document.body.classList.add('dark');
+  updateThemeIcon();
+})();
+
+function updateThemeIcon() {
+  const btn = document.getElementById('themeToggle');
+  btn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+  btn.title = document.body.classList.contains('dark') ? 'Tryb jasny' : 'Tryb ciemny';
+}
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcon();
+});
 
 // --- File handling ---
 dropZone.addEventListener('click', () => fileInput.click());
@@ -264,7 +446,6 @@ async function handleFile(file) {
   cropImg.onload = async () => {
     cropArea.classList.add('visible');
     dropZone.style.display = 'none';
-    // Compute base dimensions that fit the viewport, never upscaling
     const maxW = (cropViewport.clientWidth || window.innerWidth - 48);
     const maxH = Math.round(window.innerHeight * 0.62);
     const ratio = Math.min(maxW / cropImg.naturalWidth, maxH / cropImg.naturalHeight, 1.0);
@@ -318,7 +499,6 @@ cropViewport.addEventListener('wheel', e => {
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
     const newZoom = Math.max(1, Math.min(MAX_ZOOM, zoomLevel + delta));
     if (newZoom !== zoomLevel) {
-      // Zoom toward cursor
       const rect = cropViewport.getBoundingClientRect();
       const mouseX = e.clientX - rect.left + cropViewport.scrollLeft;
       const mouseY = e.clientY - rect.top + cropViewport.scrollTop;
@@ -334,7 +514,6 @@ cropViewport.addEventListener('wheel', e => {
 window.addEventListener('resize', () => {
   if (!cropImg.naturalWidth) return;
   if (zoomLevel === 1) {
-    // Recompute base to fit new window size
     const maxW = cropViewport.clientWidth || window.innerWidth - 48;
     const maxH = Math.round(window.innerHeight * 0.62);
     const ratio = Math.min(maxW / cropImg.naturalWidth, maxH / cropImg.naturalHeight, 1.0);
@@ -361,8 +540,8 @@ function drawOverlay() {
   ctx.fill();
   ctx.restore();
 
-  ctx.strokeStyle = '#00d45a';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = ACCENT;
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(corners[0][0] * W, corners[0][1] * H);
   for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0] * W, corners[i][1] * H);
@@ -373,10 +552,10 @@ function drawOverlay() {
     const x = corners[i][0] * W, y = corners[i][1] * H;
     ctx.beginPath();
     ctx.arc(x, y, POINT_RADIUS, 0, Math.PI * 2);
-    ctx.fillStyle = '#00d45a';
+    ctx.fillStyle = ACCENT;
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
   }
 }
@@ -385,7 +564,6 @@ function drawOverlay() {
 function getCanvasPos(e) {
   const rect = cropCanvas.getBoundingClientRect();
   const touch = e.touches ? e.touches[0] : e;
-  // Map client coords to canvas pixel coords (accounts for CSS scaling)
   return {
     x: (touch.clientX - rect.left) * cropCanvas.width / rect.width,
     y: (touch.clientY - rect.top) * cropCanvas.height / rect.height
@@ -455,7 +633,6 @@ processBtn.addEventListener('click', async () => {
     originalResultBlob = blob;
     await loadResultToCanvas(blob);
     resultArea.classList.add('visible');
-    // Wait one frame so the area is rendered and clientWidth is real
     await new Promise(r => requestAnimationFrame(r));
     resultZoomLevel = 1;
     computeResultBaseSize();
@@ -476,7 +653,6 @@ async function loadResultToCanvas(blob) {
     img.onload = () => {
       resultCanvas.width = img.naturalWidth;
       resultCanvas.height = img.naturalHeight;
-      // Clear any inline size so CSS takes over temporarily
       resultCanvas.style.width = '';
       resultCanvas.style.height = '';
       resultCanvas.style.maxWidth = '';
@@ -490,7 +666,6 @@ async function loadResultToCanvas(blob) {
 }
 
 function computeResultBaseSize() {
-  // Must be called when resultArea is visible so clientWidth is real
   const checkerboard = document.getElementById('checkerboard');
   const maxW = checkerboard.clientWidth - 32;
   const maxH = Math.round(window.innerHeight * 0.58);
@@ -525,19 +700,21 @@ document.getElementById('resultZoomReset').addEventListener('click', () => {
 
 document.getElementById('checkerboard').addEventListener('wheel', e => {
   if (!baseResultW) return;
-  e.preventDefault();
-  const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
-  const newZoom = Math.max(1, Math.min(MAX_ZOOM, resultZoomLevel + delta));
-  if (newZoom !== resultZoomLevel) {
-    const checkerboard = document.getElementById('checkerboard');
-    const rect = checkerboard.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left + checkerboard.scrollLeft;
-    const mouseY = e.clientY - rect.top + checkerboard.scrollTop;
-    const ratio = newZoom / resultZoomLevel;
-    resultZoomLevel = newZoom;
-    applyResultZoom();
-    checkerboard.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
-    checkerboard.scrollTop = mouseY * ratio - (e.clientY - rect.top);
+  if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > 10) {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+    const newZoom = Math.max(1, Math.min(MAX_ZOOM, resultZoomLevel + delta));
+    if (newZoom !== resultZoomLevel) {
+      const checkerboard = document.getElementById('checkerboard');
+      const rect = checkerboard.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left + checkerboard.scrollLeft;
+      const mouseY = e.clientY - rect.top + checkerboard.scrollTop;
+      const ratio = newZoom / resultZoomLevel;
+      resultZoomLevel = newZoom;
+      applyResultZoom();
+      checkerboard.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+      checkerboard.scrollTop = mouseY * ratio - (e.clientY - rect.top);
+    }
   }
 }, { passive: false });
 
@@ -557,7 +734,7 @@ document.getElementById('eraserToggle').addEventListener('click', () => {
 document.getElementById('resetResult').addEventListener('click', async () => {
   if (originalResultBlob) {
     await loadResultToCanvas(originalResultBlob);
-    applyResultZoom(); // restore current zoom level styles
+    applyResultZoom();
   }
 });
 
@@ -578,8 +755,6 @@ function getResultPos(e) {
 }
 
 function eraseAt(pos) {
-  // pos is already in canvas pixel space (from getResultPos)
-  // Convert display brush size to canvas pixels
   const displayW = parseFloat(resultCanvas.style.width) || resultCanvas.width;
   const r = brushSizePx * (resultCanvas.width / displayW);
   rctx.save();
@@ -591,20 +766,17 @@ function eraseAt(pos) {
 }
 
 // Custom brush cursor overlay
-let cursorX = 0, cursorY = 0;
-let cursorVisible = false;
 const cursorOverlay = document.createElement('div');
 cursorOverlay.style.cssText = 'position:fixed;pointer-events:none;border-radius:50%;border:2px solid #ff3b30;background:rgba(255,59,48,0.15);transform:translate(-50%,-50%);display:none;z-index:9999;';
 document.body.appendChild(cursorOverlay);
 
 resultCanvas.addEventListener('mousemove', e => {
   if (!eraserMode) { cursorOverlay.style.display = 'none'; return; }
-  cursorX = e.clientX; cursorY = e.clientY;
   const displayW = parseFloat(resultCanvas.style.width) || resultCanvas.width;
   const displayRadius = brushSizePx * (displayW / resultCanvas.width);
   cursorOverlay.style.display = 'block';
-  cursorOverlay.style.left = cursorX + 'px';
-  cursorOverlay.style.top = cursorY + 'px';
+  cursorOverlay.style.left = e.clientX + 'px';
+  cursorOverlay.style.top = e.clientY + 'px';
   cursorOverlay.style.width = (displayRadius * 2) + 'px';
   cursorOverlay.style.height = (displayRadius * 2) + 'px';
   if (isErasing) eraseAt(getResultPos(e));
@@ -630,7 +802,7 @@ resultCanvas.addEventListener('touchmove', e => {
 }, { passive: false });
 resultCanvas.addEventListener('touchend', () => { isErasing = false; });
 
-// --- Download / Copy from canvas ---
+// --- Download / Copy ---
 document.getElementById('downloadBtn').addEventListener('click', () => {
   resultCanvas.toBlob(blob => {
     const a = document.createElement('a');
@@ -643,7 +815,6 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const btn = document.getElementById('copyBtn');
   try {
-    // Pass blob as Promise directly — keeps the user-gesture context alive
     const blobPromise = new Promise(resolve => resultCanvas.toBlob(resolve, 'image/png'));
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
     btn.textContent = 'Skopiowano!';
@@ -652,6 +823,29 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
     alert('Kopiowanie nie powiodlo sie. Sprobuj pobrac plik.');
   }
 });
+
+// --- New photo ---
+function resetApp() {
+  selectedFile = null;
+  originalResultBlob = null;
+  corners = [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]];
+  zoomLevel = 1;
+  resultZoomLevel = 1;
+  baseImgW = 0; baseImgH = 0;
+  baseResultW = 0; baseResultH = 0;
+  eraserMode = false;
+  updateEraserUI();
+  cropArea.classList.remove('visible');
+  resultArea.classList.remove('visible');
+  dropZone.style.display = '';
+  processBtn.disabled = true;
+  statusEl.textContent = '';
+  fileInput.value = '';
+  cropImg.src = '';
+  rctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.getElementById('newPhotoBtn').addEventListener('click', resetApp);
 
 // --- Advanced panel ---
 document.getElementById('toggleAdvanced').addEventListener('click', () => {

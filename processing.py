@@ -45,6 +45,77 @@ def _find_quad_in_edges(edges, min_area_frac=0.1):
     return None
 
 
+def _is_reasonable_quad(corners, sw, sh):
+    """Reject quads that cover nearly the whole image or are tiny."""
+    area = cv2.contourArea(np.array(corners, dtype=np.float32))
+    total = sw * sh
+    return 0.05 * total < area < 0.96 * total
+
+
+def _line_intersect(l1, l2):
+    """Return intersection point of two lines, each as (x1,y1,x2,y2). Returns None if parallel."""
+    x1, y1, x2, y2 = l1
+    x3, y3, x4, y4 = l2
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(denom) < 1e-10:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+    return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]
+
+
+def _detect_via_hough(gray):
+    """Detect board via Hough line intersections — works well for frames with clear edges."""
+    sh, sw = gray.shape[:2]
+    filtered = cv2.bilateralFilter(gray, 9, 75, 75)
+    edges = cv2.Canny(filtered, 30, 100)
+    min_len = min(sw, sh) * 0.20
+
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=60,
+                             minLineLength=min_len, maxLineGap=40)
+    if lines is None or len(lines) < 4:
+        return None
+
+    lines = lines.reshape(-1, 4)
+    h_lines, v_lines = [], []
+    for x1, y1, x2, y2 in lines:
+        angle = abs(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
+        if angle < 25 or angle > 155:
+            h_lines.append((x1, y1, x2, y2))
+        elif 65 < angle < 115:
+            v_lines.append((x1, y1, x2, y2))
+
+    if len(h_lines) < 2 or len(v_lines) < 2:
+        return None
+
+    h_lines_sorted = sorted(h_lines, key=lambda l: (l[1] + l[3]) / 2)
+    v_lines_sorted = sorted(v_lines, key=lambda l: (l[0] + l[2]) / 2)
+
+    top_line = h_lines_sorted[0]
+    bot_line = h_lines_sorted[-1]
+    left_line = v_lines_sorted[0]
+    right_line = v_lines_sorted[-1]
+
+    tl = _line_intersect(top_line, left_line)
+    tr = _line_intersect(top_line, right_line)
+    br = _line_intersect(bot_line, right_line)
+    bl = _line_intersect(bot_line, left_line)
+
+    if any(p is None for p in [tl, tr, br, bl]):
+        return None
+
+    corners = [tl, tr, br, bl]
+
+    # All corners must be within image bounds (allow 10% overshoot for perspective)
+    for x, y in corners:
+        if x < -sw * 0.10 or x > sw * 1.10 or y < -sh * 0.10 or y > sh * 1.10:
+            return None
+
+    if not _is_reasonable_quad(corners, sw, sh):
+        return None
+
+    return corners
+
+
 def detect_board_corners(image_bytes: bytes) -> list:
     """Auto-detect whiteboard corners. Returns 4 points as [[x%, y%], ...] in 0-1 range.
     Order: top-left, top-right, bottom-right, bottom-left."""
@@ -55,6 +126,9 @@ def detect_board_corners(image_bytes: bytes) -> list:
     # Downscale for faster processing
     scale = min(1.0, 900.0 / max(h, w))
     small = cv2.resize(gray, None, fx=scale, fy=scale) if scale < 1 else gray.copy()
+    sh, sw = small.shape[:2]
+
+    best_corners = None
 
     # Strategy 1: CLAHE + Canny (best for low-contrast boards)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -62,22 +136,32 @@ def detect_board_corners(image_bytes: bytes) -> list:
     blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
     edges = cv2.Canny(blurred, 30, 120)
     edges = cv2.dilate(edges, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-    best_corners = _find_quad_in_edges(edges)
+    cand = _find_quad_in_edges(edges)
+    if cand and _is_reasonable_quad(cand, sw, sh):
+        best_corners = cand
 
     # Strategy 2: Standard Canny on original gray
     if best_corners is None:
         blurred2 = cv2.GaussianBlur(small, (5, 5), 0)
         edges2 = cv2.Canny(blurred2, 50, 150)
         edges2 = cv2.dilate(edges2, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-        best_corners = _find_quad_in_edges(edges2)
+        cand = _find_quad_in_edges(edges2)
+        if cand and _is_reasonable_quad(cand, sw, sh):
+            best_corners = cand
 
-    # Strategy 3: Morphological closing to connect broken edges
+    # Strategy 3: Hough lines (excellent for boards with visible rectangular frames)
+    if best_corners is None:
+        best_corners = _detect_via_hough(small)
+
+    # Strategy 4: Morphological closing to connect broken edges
     if best_corners is None:
         closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE,
                                   cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20)))
-        best_corners = _find_quad_in_edges(closed)
+        cand = _find_quad_in_edges(closed)
+        if cand and _is_reasonable_quad(cand, sw, sh):
+            best_corners = cand
 
-    # Strategy 4: Brightness-based — whiteboards are typically the brightest large region
+    # Strategy 5: Brightness-based — whiteboards are typically the brightest large region
     if best_corners is None:
         _, bright = cv2.threshold(small, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 25))
@@ -86,23 +170,26 @@ def detect_board_corners(image_bytes: bytes) -> list:
         contours_b, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if contours_b:
             largest = max(contours_b, key=cv2.contourArea)
-            if cv2.contourArea(largest) > small.shape[0] * small.shape[1] * 0.1:
+            if cv2.contourArea(largest) > sh * sw * 0.1:
                 hull = cv2.convexHull(largest)
                 peri = cv2.arcLength(hull, True)
                 for eps in [0.02, 0.05, 0.1]:
                     approx = cv2.approxPolyDP(hull, eps * peri, True)
                     if len(approx) == 4:
-                        best_corners = approx.reshape(4, 2).tolist()
-                        break
+                        cand = approx.reshape(4, 2).tolist()
+                        if _is_reasonable_quad(cand, sw, sh):
+                            best_corners = cand
+                            break
                 if best_corners is None:
                     rect = cv2.minAreaRect(largest)
                     box = cv2.boxPoints(rect)
-                    best_corners = box.tolist()
+                    cand = box.tolist()
+                    if _is_reasonable_quad(cand, sw, sh):
+                        best_corners = cand
 
     if best_corners is None:
-        # Final fallback: use image margins
-        sh, sw = small.shape[:2]
-        margin = 0.06
+        # Final fallback: centered rectangle at 10% margin (looks intentional)
+        margin = 0.10
         best_corners = [
             [int(sw * margin), int(sh * margin)],
             [int(sw * (1 - margin)), int(sh * margin)],
