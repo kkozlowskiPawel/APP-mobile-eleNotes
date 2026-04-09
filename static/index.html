@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eleNotes</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; padding: 20px; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: #86868b; margin-bottom: 24px; font-size: 0.95rem; }
+
+  .drop-zone {
+    border: 2px dashed #c7c7cc; border-radius: 16px; padding: 48px 24px; text-align: center;
+    cursor: pointer; transition: all 0.2s; background: #fff; margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #007aff; background: #f0f7ff; }
+  .drop-zone .icon { font-size: 2.5rem; margin-bottom: 8px; color: #c7c7cc; }
+  .drop-zone p { color: #86868b; font-size: 1.1rem; }
+
+  /* Crop area */
+  .crop-area { display: none; margin-bottom: 20px; }
+  .crop-area.visible { display: block; }
+
+  .zoom-bar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    background: #fff; border-radius: 10px; padding: 8px 14px;
+  }
+  .zoom-bar span { font-size: 0.85rem; color: #6e6e73; flex: 1; }
+  .zoom-bar .zoom-label { font-weight: 600; color: #007aff; min-width: 42px; text-align: center; font-size: 0.9rem; }
+  .zoom-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: none;
+    background: #e5e5ea; cursor: pointer; font-size: 1.2rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; color: #1d1d1f;
+    transition: background 0.15s;
+  }
+  .zoom-btn:hover { background: #d1d1d6; }
+
+  .crop-viewport {
+    overflow: auto; border-radius: 12px; background: #000;
+    max-height: 65vh; cursor: default;
+  }
+  .crop-container {
+    position: relative; display: inline-block;
+    transform-origin: top left;
+  }
+  .crop-container img { display: block; }
+  .crop-container canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    cursor: crosshair;
+  }
+  .crop-hint { font-size: 0.85rem; color: #86868b; margin-top: 8px; }
+
+  .actions { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  button {
+    padding: 12px 28px; border: none; border-radius: 10px; font-size: 1rem;
+    cursor: pointer; font-weight: 600; transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .btn-primary { background: #007aff; color: #fff; font-size: 1.1rem; padding: 14px 36px; }
+  .btn-secondary { background: #e5e5ea; color: #1d1d1f; }
+  .btn-text { background: none; color: #86868b; font-size: 0.85rem; padding: 8px 12px; font-weight: 400; }
+  .btn-text:hover { color: #007aff; opacity: 1; }
+  .btn-danger { background: #ff3b30; color: #fff; }
+
+  .advanced { display: none; margin-bottom: 20px; background: #fff; padding: 16px; border-radius: 12px; }
+  .advanced.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-group label { font-size: 0.85rem; color: #6e6e73; font-weight: 500; }
+  .control-group .value { font-size: 0.8rem; color: #007aff; font-weight: 600; }
+  input[type="range"] { width: 100%; accent-color: #007aff; }
+  .checkbox-row { display: flex; gap: 20px; grid-column: 1 / -1; }
+  .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
+
+  /* Result area */
+  .result-area { display: none; }
+  .result-area.visible { display: block; margin-bottom: 20px; }
+  .result-label { font-size: 0.85rem; color: #6e6e73; margin-bottom: 8px; font-weight: 500; }
+
+  .checkerboard {
+    background-image:
+      linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+      linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+      linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    border-radius: 12px; padding: 16px; text-align: center;
+    overflow: auto; max-height: 60vh;
+  }
+  .checkerboard canvas { max-width: 100%; border-radius: 4px; display: block; margin: 0 auto; }
+
+  /* Eraser toolbar */
+  .eraser-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: #fff; border-radius: 10px; padding: 10px 14px; margin-top: 12px;
+  }
+  .eraser-bar label { font-size: 0.85rem; color: #6e6e73; font-weight: 500; }
+  .eraser-toggle {
+    padding: 8px 18px; border-radius: 8px; font-size: 0.9rem;
+  }
+  .eraser-toggle.active { background: #ff9500; color: #fff; }
+  .brush-group { display: flex; align-items: center; gap: 8px; }
+  .brush-group input[type="range"] { width: 100px; }
+  .brush-size-preview {
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  }
+  .brush-dot {
+    background: rgba(255, 59, 48, 0.5); border-radius: 50%; border: 1.5px solid #ff3b30;
+    transition: width 0.1s, height 0.1s;
+  }
+
+  .result-actions { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+
+  .spinner { display: none; }
+  .spinner.active { display: inline-block; width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { color: #86868b; font-size: 0.9rem; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<h1>eleNotes</h1>
+<p class="subtitle">Zrob zdjecie tablicy, wrzuc tutaj i pobierz czyste notatki z przezroczystym tlem</p>
+
+<div class="drop-zone" id="dropZone">
+  <div class="icon">+</div>
+  <p>Przeciagnij zdjecie tablicy tutaj lub kliknij aby wybrac</p>
+  <input type="file" id="fileInput" accept="image/*" hidden>
+</div>
+
+<div class="crop-area" id="cropArea">
+  <div class="zoom-bar">
+    <span>Powiększenie (scroll lub przyciski):</span>
+    <button class="zoom-btn" id="zoomOut" title="Zmniejsz">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button class="zoom-btn" id="zoomIn" title="Powieksz">+</button>
+    <button class="btn-text" id="zoomReset" style="padding:4px 10px">Reset</button>
+  </div>
+  <div class="crop-viewport" id="cropViewport">
+    <div class="crop-container" id="cropContainer">
+      <img id="cropImg">
+      <canvas id="cropCanvas"></canvas>
+    </div>
+  </div>
+  <p class="crop-hint">Przeciagnij zielone punkty aby dopasowac zaznaczenie tablicy &nbsp;|&nbsp; Scroll = zoom</p>
+</div>
+
+<div class="actions">
+  <button class="btn-primary" id="processBtn" disabled>
+    <span class="spinner" id="spinner"></span>Wyczysc tablice
+  </button>
+  <span class="status" id="status"></span>
+</div>
+
+<div class="result-area" id="resultArea">
+  <p class="result-label">Wynik (szachownica = przezroczyste tlo)</p>
+  <div class="zoom-bar">
+    <span>Powiększenie wyniku (scroll lub przyciski):</span>
+    <button class="zoom-btn" id="resultZoomOut" title="Zmniejsz">−</button>
+    <span class="zoom-label" id="resultZoomLabel">100%</span>
+    <button class="zoom-btn" id="resultZoomIn" title="Powieksz">+</button>
+    <button class="btn-text" id="resultZoomReset" style="padding:4px 10px">Reset</button>
+  </div>
+  <div class="checkerboard" id="checkerboard">
+    <canvas id="resultCanvas"></canvas>
+  </div>
+
+  <div class="eraser-bar">
+    <label>Gumka:</label>
+    <button class="btn-secondary eraser-toggle" id="eraserToggle">Wlacz gumke</button>
+    <div class="brush-group">
+      <label>Rozmiar:</label>
+      <input type="range" id="brushSize" min="5" max="120" value="25">
+      <div class="brush-size-preview"><div class="brush-dot" id="brushDot" style="width:25px;height:25px"></div></div>
+    </div>
+    <button class="btn-text" id="resetResult" style="margin-left:auto">Cofnij wszystko</button>
+  </div>
+
+  <div class="result-actions">
+    <button class="btn-primary" id="downloadBtn">Pobierz PNG</button>
+    <button class="btn-secondary" id="copyBtn">Kopiuj do schowka</button>
+  </div>
+</div>
+
+<div style="margin-top: 12px;">
+  <button class="btn-text" id="toggleAdvanced">Ustawienia zaawansowane</button>
+</div>
+<div class="advanced" id="advancedPanel">
+  <div class="control-group">
+    <label>Czulosc <span class="value" id="sensitivityVal">80</span></label>
+    <input type="range" id="sensitivity" min="0" max="100" value="80">
+  </div>
+  <div class="control-group">
+    <label>Ostrosc krawedzi <span class="value" id="steepnessVal">0.30</span></label>
+    <input type="range" id="steepness" min="5" max="80" value="30">
+  </div>
+  <div class="control-group">
+    <label>Rozmycie tla <span class="value" id="blurVal">51</span></label>
+    <input type="range" id="blur_sigma" min="11" max="101" value="51" step="2">
+  </div>
+  <div class="checkbox-row">
+    <label><input type="checkbox" id="denoise" checked> Usun szum</label>
+    <label><input type="checkbox" id="preserve_color"> Zachowaj kolory</label>
+  </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const cropArea = document.getElementById('cropArea');
+const cropImg = document.getElementById('cropImg');
+const cropCanvas = document.getElementById('cropCanvas');
+const cropViewport = document.getElementById('cropViewport');
+const cropContainer = document.getElementById('cropContainer');
+const ctx = cropCanvas.getContext('2d');
+const processBtn = document.getElementById('processBtn');
+const statusEl = document.getElementById('status');
+const spinner = document.getElementById('spinner');
+const resultArea = document.getElementById('resultArea');
+const resultCanvas = document.getElementById('resultCanvas');
+const rctx = resultCanvas.getContext('2d');
+
+let selectedFile = null;
+let originalResultBlob = null;
+// corners as fractions 0-1: [TL, TR, BR, BL]
+let corners = [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]];
+let draggingIdx = -1;
+const POINT_RADIUS = 14;
+
+// Zoom state
+let zoomLevel = 1;
+const ZOOM_STEP = 0.25;
+const MAX_ZOOM = 5;
+let baseImgW = 0, baseImgH = 0;
+
+// Result zoom state
+let resultZoomLevel = 1;
+let baseResultW = 0, baseResultH = 0;
+
+// Eraser state
+let eraserMode = false;
+let isErasing = false;
+let brushSizePx = 25;
+
+// --- File handling ---
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+async function handleFile(file) {
+  selectedFile = file;
+  resultArea.classList.remove('visible');
+  statusEl.textContent = 'Wykrywanie tablicy...';
+  zoomLevel = 1;
+
+  const url = URL.createObjectURL(file);
+  cropImg.onload = async () => {
+    cropArea.classList.add('visible');
+    dropZone.style.display = 'none';
+    // Compute base dimensions that fit the viewport, never upscaling
+    const maxW = (cropViewport.clientWidth || window.innerWidth - 48);
+    const maxH = Math.round(window.innerHeight * 0.62);
+    const ratio = Math.min(maxW / cropImg.naturalWidth, maxH / cropImg.naturalHeight, 1.0);
+    baseImgW = Math.round(cropImg.naturalWidth * ratio);
+    baseImgH = Math.round(cropImg.naturalHeight * ratio);
+    applyZoom();
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const resp = await fetch('/detect', { method: 'POST', body: form });
+      if (resp.ok) {
+        const data = await resp.json();
+        corners = data.corners;
+      }
+    } catch (e) { /* use default corners */ }
+    drawOverlay();
+    processBtn.disabled = false;
+    statusEl.textContent = 'Dopasuj zaznaczenie i kliknij "Wyczysc tablice"';
+  };
+  cropImg.src = url;
+}
+
+// --- Zoom ---
+function applyZoom() {
+  const w = Math.round(baseImgW * zoomLevel);
+  const h = Math.round(baseImgH * zoomLevel);
+  cropImg.style.width = w + 'px';
+  cropImg.style.height = h + 'px';
+  cropImg.style.maxWidth = 'none';
+  cropImg.style.maxHeight = 'none';
+  cropCanvas.width = w;
+  cropCanvas.height = h;
+  document.getElementById('zoomLabel').textContent = Math.round(zoomLevel * 100) + '%';
+  drawOverlay();
+}
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  if (zoomLevel < MAX_ZOOM) { zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP); applyZoom(); }
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  if (zoomLevel > 1) { zoomLevel = Math.max(1, zoomLevel - ZOOM_STEP); applyZoom(); }
+});
+document.getElementById('zoomReset').addEventListener('click', () => {
+  zoomLevel = 1; applyZoom();
+  cropViewport.scrollTo(0, 0);
+});
+
+cropViewport.addEventListener('wheel', e => {
+  if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > 10) {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+    const newZoom = Math.max(1, Math.min(MAX_ZOOM, zoomLevel + delta));
+    if (newZoom !== zoomLevel) {
+      // Zoom toward cursor
+      const rect = cropViewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left + cropViewport.scrollLeft;
+      const mouseY = e.clientY - rect.top + cropViewport.scrollTop;
+      const ratio = newZoom / zoomLevel;
+      zoomLevel = newZoom;
+      applyZoom();
+      cropViewport.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+      cropViewport.scrollTop = mouseY * ratio - (e.clientY - rect.top);
+    }
+  }
+}, { passive: false });
+
+window.addEventListener('resize', () => {
+  if (!cropImg.naturalWidth) return;
+  if (zoomLevel === 1) {
+    // Recompute base to fit new window size
+    const maxW = cropViewport.clientWidth || window.innerWidth - 48;
+    const maxH = Math.round(window.innerHeight * 0.62);
+    const ratio = Math.min(maxW / cropImg.naturalWidth, maxH / cropImg.naturalHeight, 1.0);
+    baseImgW = Math.round(cropImg.naturalWidth * ratio);
+    baseImgH = Math.round(cropImg.naturalHeight * ratio);
+  }
+  applyZoom();
+});
+
+// --- Canvas overlay ---
+function drawOverlay() {
+  const W = cropCanvas.width, H = cropCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.moveTo(corners[0][0] * W, corners[0][1] * H);
+  for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0] * W, corners[i][1] * H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = '#00d45a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(corners[0][0] * W, corners[0][1] * H);
+  for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0] * W, corners[i][1] * H);
+  ctx.closePath();
+  ctx.stroke();
+
+  for (let i = 0; i < 4; i++) {
+    const x = corners[i][0] * W, y = corners[i][1] * H;
+    ctx.beginPath();
+    ctx.arc(x, y, POINT_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = '#00d45a';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+// --- Dragging corners ---
+function getCanvasPos(e) {
+  const rect = cropCanvas.getBoundingClientRect();
+  const touch = e.touches ? e.touches[0] : e;
+  // Map client coords to canvas pixel coords (accounts for CSS scaling)
+  return {
+    x: (touch.clientX - rect.left) * cropCanvas.width / rect.width,
+    y: (touch.clientY - rect.top) * cropCanvas.height / rect.height
+  };
+}
+
+function findClosestCorner(pos) {
+  const W = cropCanvas.width, H = cropCanvas.height;
+  let closest = -1, minDist = Infinity;
+  for (let i = 0; i < 4; i++) {
+    const dx = corners[i][0] * W - pos.x;
+    const dy = corners[i][1] * H - pos.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < POINT_RADIUS * 2.5 && d < minDist) { minDist = d; closest = i; }
+  }
+  return closest;
+}
+
+cropCanvas.addEventListener('mousedown', e => {
+  draggingIdx = findClosestCorner(getCanvasPos(e));
+  if (draggingIdx >= 0) e.preventDefault();
+});
+cropCanvas.addEventListener('touchstart', e => {
+  draggingIdx = findClosestCorner(getCanvasPos(e));
+  if (draggingIdx >= 0) e.preventDefault();
+}, { passive: false });
+
+function onMove(e) {
+  if (draggingIdx < 0) return;
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  corners[draggingIdx] = [
+    Math.max(0, Math.min(1, pos.x / cropCanvas.width)),
+    Math.max(0, Math.min(1, pos.y / cropCanvas.height))
+  ];
+  drawOverlay();
+}
+cropCanvas.addEventListener('mousemove', onMove);
+cropCanvas.addEventListener('touchmove', onMove, { passive: false });
+
+function onUp() { draggingIdx = -1; }
+cropCanvas.addEventListener('mouseup', onUp);
+cropCanvas.addEventListener('touchend', onUp);
+
+// --- Process ---
+processBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  processBtn.disabled = true;
+  spinner.classList.add('active');
+  statusEl.textContent = 'Przetwarzanie...';
+  eraserMode = false;
+  updateEraserUI();
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+  form.append('corners', JSON.stringify(corners));
+  form.append('sensitivity', document.getElementById('sensitivity').value);
+  form.append('steepness', (document.getElementById('steepness').value / 100).toFixed(2));
+  form.append('blur_sigma', document.getElementById('blur_sigma').value);
+  form.append('denoise', document.getElementById('denoise').checked);
+  form.append('preserve_color', document.getElementById('preserve_color').checked);
+
+  try {
+    const resp = await fetch('/process', { method: 'POST', body: form });
+    if (!resp.ok) throw new Error('Processing failed');
+    const blob = await resp.blob();
+    originalResultBlob = blob;
+    await loadResultToCanvas(blob);
+    resultArea.classList.add('visible');
+    // Wait one frame so the area is rendered and clientWidth is real
+    await new Promise(r => requestAnimationFrame(r));
+    resultZoomLevel = 1;
+    computeResultBaseSize();
+    applyResultZoom();
+    statusEl.textContent = 'Gotowe!';
+    resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    statusEl.textContent = 'Blad: ' + e.message;
+  } finally {
+    processBtn.disabled = false;
+    spinner.classList.remove('active');
+  }
+});
+
+async function loadResultToCanvas(blob) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      resultCanvas.width = img.naturalWidth;
+      resultCanvas.height = img.naturalHeight;
+      // Clear any inline size so CSS takes over temporarily
+      resultCanvas.style.width = '';
+      resultCanvas.style.height = '';
+      resultCanvas.style.maxWidth = '';
+      rctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      rctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(img.src);
+      resolve();
+    };
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+function computeResultBaseSize() {
+  // Must be called when resultArea is visible so clientWidth is real
+  const checkerboard = document.getElementById('checkerboard');
+  const maxW = checkerboard.clientWidth - 32;
+  const maxH = Math.round(window.innerHeight * 0.58);
+  const ratio = Math.min(maxW / resultCanvas.width, maxH / resultCanvas.height, 1.0);
+  baseResultW = Math.round(resultCanvas.width * ratio);
+  baseResultH = Math.round(resultCanvas.height * ratio);
+}
+
+// --- Result zoom ---
+function applyResultZoom() {
+  const w = Math.round(baseResultW * resultZoomLevel);
+  const h = Math.round(baseResultH * resultZoomLevel);
+  resultCanvas.style.width = w + 'px';
+  resultCanvas.style.height = h + 'px';
+  resultCanvas.style.maxWidth = 'none';
+  document.getElementById('resultZoomLabel').textContent = Math.round(resultZoomLevel * 100) + '%';
+}
+
+document.getElementById('resultZoomIn').addEventListener('click', () => {
+  resultZoomLevel = Math.min(MAX_ZOOM, resultZoomLevel + ZOOM_STEP);
+  applyResultZoom();
+});
+document.getElementById('resultZoomOut').addEventListener('click', () => {
+  resultZoomLevel = Math.max(1, resultZoomLevel - ZOOM_STEP);
+  applyResultZoom();
+});
+document.getElementById('resultZoomReset').addEventListener('click', () => {
+  resultZoomLevel = 1;
+  applyResultZoom();
+  document.getElementById('checkerboard').scrollTo(0, 0);
+});
+
+document.getElementById('checkerboard').addEventListener('wheel', e => {
+  if (!baseResultW) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+  const newZoom = Math.max(1, Math.min(MAX_ZOOM, resultZoomLevel + delta));
+  if (newZoom !== resultZoomLevel) {
+    const checkerboard = document.getElementById('checkerboard');
+    const rect = checkerboard.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left + checkerboard.scrollLeft;
+    const mouseY = e.clientY - rect.top + checkerboard.scrollTop;
+    const ratio = newZoom / resultZoomLevel;
+    resultZoomLevel = newZoom;
+    applyResultZoom();
+    checkerboard.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+    checkerboard.scrollTop = mouseY * ratio - (e.clientY - rect.top);
+  }
+}, { passive: false });
+
+// --- Eraser tool ---
+function updateEraserUI() {
+  const btn = document.getElementById('eraserToggle');
+  btn.textContent = eraserMode ? 'Wylacz gumke' : 'Wlacz gumke';
+  btn.classList.toggle('active', eraserMode);
+  resultCanvas.style.cursor = eraserMode ? 'none' : 'default';
+}
+
+document.getElementById('eraserToggle').addEventListener('click', () => {
+  eraserMode = !eraserMode;
+  updateEraserUI();
+});
+
+document.getElementById('resetResult').addEventListener('click', async () => {
+  if (originalResultBlob) {
+    await loadResultToCanvas(originalResultBlob);
+    applyResultZoom(); // restore current zoom level styles
+  }
+});
+
+document.getElementById('brushSize').addEventListener('input', e => {
+  brushSizePx = parseInt(e.target.value);
+  const dot = document.getElementById('brushDot');
+  dot.style.width = Math.min(brushSizePx, 30) + 'px';
+  dot.style.height = Math.min(brushSizePx, 30) + 'px';
+});
+
+function getResultPos(e) {
+  const rect = resultCanvas.getBoundingClientRect();
+  const touch = e.touches ? e.touches[0] : e;
+  return {
+    x: (touch.clientX - rect.left) * resultCanvas.width / rect.width,
+    y: (touch.clientY - rect.top) * resultCanvas.height / rect.height,
+  };
+}
+
+function eraseAt(pos) {
+  // pos is already in canvas pixel space (from getResultPos)
+  // Convert display brush size to canvas pixels
+  const displayW = parseFloat(resultCanvas.style.width) || resultCanvas.width;
+  const r = brushSizePx * (resultCanvas.width / displayW);
+  rctx.save();
+  rctx.globalCompositeOperation = 'destination-out';
+  rctx.beginPath();
+  rctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+  rctx.fill();
+  rctx.restore();
+}
+
+// Custom brush cursor overlay
+let cursorX = 0, cursorY = 0;
+let cursorVisible = false;
+const cursorOverlay = document.createElement('div');
+cursorOverlay.style.cssText = 'position:fixed;pointer-events:none;border-radius:50%;border:2px solid #ff3b30;background:rgba(255,59,48,0.15);transform:translate(-50%,-50%);display:none;z-index:9999;';
+document.body.appendChild(cursorOverlay);
+
+resultCanvas.addEventListener('mousemove', e => {
+  if (!eraserMode) { cursorOverlay.style.display = 'none'; return; }
+  cursorX = e.clientX; cursorY = e.clientY;
+  const displayW = parseFloat(resultCanvas.style.width) || resultCanvas.width;
+  const displayRadius = brushSizePx * (displayW / resultCanvas.width);
+  cursorOverlay.style.display = 'block';
+  cursorOverlay.style.left = cursorX + 'px';
+  cursorOverlay.style.top = cursorY + 'px';
+  cursorOverlay.style.width = (displayRadius * 2) + 'px';
+  cursorOverlay.style.height = (displayRadius * 2) + 'px';
+  if (isErasing) eraseAt(getResultPos(e));
+});
+resultCanvas.addEventListener('mouseleave', () => { cursorOverlay.style.display = 'none'; isErasing = false; });
+resultCanvas.addEventListener('mousedown', e => {
+  if (!eraserMode) return;
+  isErasing = true;
+  eraseAt(getResultPos(e));
+});
+resultCanvas.addEventListener('mouseup', () => { isErasing = false; });
+
+resultCanvas.addEventListener('touchstart', e => {
+  if (!eraserMode) return;
+  e.preventDefault();
+  isErasing = true;
+  eraseAt(getResultPos(e));
+}, { passive: false });
+resultCanvas.addEventListener('touchmove', e => {
+  if (!eraserMode) return;
+  e.preventDefault();
+  eraseAt(getResultPos(e));
+}, { passive: false });
+resultCanvas.addEventListener('touchend', () => { isErasing = false; });
+
+// --- Download / Copy from canvas ---
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  resultCanvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'elenotes_result.png';
+    a.click();
+  }, 'image/png');
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('copyBtn');
+  try {
+    // Pass blob as Promise directly — keeps the user-gesture context alive
+    const blobPromise = new Promise(resolve => resultCanvas.toBlob(resolve, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+    btn.textContent = 'Skopiowano!';
+    setTimeout(() => btn.textContent = 'Kopiuj do schowka', 2000);
+  } catch (e) {
+    alert('Kopiowanie nie powiodlo sie. Sprobuj pobrac plik.');
+  }
+});
+
+// --- Advanced panel ---
+document.getElementById('toggleAdvanced').addEventListener('click', () => {
+  const panel = document.getElementById('advancedPanel');
+  panel.classList.toggle('visible');
+  document.getElementById('toggleAdvanced').textContent =
+    panel.classList.contains('visible') ? 'Ukryj ustawienia' : 'Ustawienia zaawansowane';
+});
+['sensitivity', 'steepness', 'blur_sigma'].forEach(id => {
+  document.getElementById(id).addEventListener('input', (e) => {
+    if (id === 'steepness') document.getElementById('steepnessVal').textContent = (e.target.value / 100).toFixed(2);
+    else if (id === 'blur_sigma') document.getElementById('blurVal').textContent = e.target.value;
+    else document.getElementById('sensitivityVal').textContent = e.target.value;
+  });
+});
+</script>
+</body>
+</html>
